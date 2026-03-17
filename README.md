@@ -1,4 +1,14 @@
 ## 更新
+add language en/zh, Calculate human-machine verification
+```
+📋 需要回覆轉發訊息的指令：
+  /block · /unblock · /checkblock · /info
+
+獨立指令：
+  /setword <詞>   — 新增屏蔽詞
+  /delword <詞>   — 刪除屏蔽詞
+  /listword       — 列出所有屏蔽詞
+```
 
 欢迎使用我们NFD2.0项目🎉，1分钟内快速搭建教程：
 
