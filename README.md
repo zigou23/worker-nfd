@@ -1,61 +1,100 @@
-## 更新
-add language en/zh, Calculate human-machine verification
-```
-📋 需要回覆轉發訊息的指令：
-  /block · /unblock · /checkblock · /info
+# Telegram 匿名留言/轉發機器人 (Cloudflare Worker)
 
-獨立指令：
-  /setword <詞>   — 新增屏蔽詞
-  /delword <詞>   — 刪除屏蔽詞
-  /listword       — 列出所有屏蔽詞
-```
+<p align="right">
+  <a href="#">中文</a> | 
+  <a href="./README_en.md">English</a>
+</p>
 
-欢迎使用我们NFD2.0项目🎉，1分钟内快速搭建教程：
+這是一個基於 Cloudflare Workers 的無伺服器 Telegram 機器人，能作為您與訪客之間的安全溝通橋樑。訪客傳送訊息給機器人並通過簡單的數學驗證碼後，訊息將會轉發給您。您可以直接在 Telegram 中回覆他們。
 
-> 用户先去[@BotFather](https://t.me/NodeForwardBot/BotFather)，输入 `/newbot` ，按照指引输入你要创建的机器人的昵称和名字，点击复制机器人吐出的token
-> 
-> 然后到[@NodeForwardBot](https://t.me/NodeForwardBot)粘贴，完活。
-> 
-> 详细信息可以参考：[https://www.nodeseek.com/post-286885-1](https://www.nodeseek.com/post-286885-1)
+## ✨ 主要功能
 
-NFD2.0拥有无限配额（自建有每日1k消息上限），且托管在[cloudflare snippets](https://developers.cloudflare.com/rules/snippets/)，理论上不会掉线。如果需要自建，参考下面的自建教程。
+- **數學驗證碼防護**：防範垃圾訊息機器人，驗證時效為 60 秒，答錯將封禁 5 分鐘。
+- **雙語支援**：訪客與管理員介面皆支援繁體中文與英文。
+- **Telegram 內建管理面板**：直接回覆訊息即可與訪客對話，或呼叫互動式選單來管理設定。
+- **關鍵字過濾**：管理員可新增/刪除屏蔽詞，包含這些詞彙的訊息將被攔截。
+- **詐騙庫整合**：自動比對遠端詐騙資料庫，若遇可疑 UID 將觸發警報。
+- **免費無伺服器架構**：運行於 Cloudflare Workers 並使用 KV 作為資料庫。
 
-# NFD
-No Fraud / Node Forward Bot
+------
 
-一个基于cloudflare worker的telegram 消息转发bot，集成了反欺诈功能
+## 🚀 網頁版部署教學
 
-## 特点
-- 基于cloudflare worker搭建，能够实现以下效果
-    - 搭建成本低，一个js文件即可完成搭建
-    - 不需要额外的域名，利用worker自带域名即可
-    - 基于worker kv实现永久数据储存
-    - 稳定，全球cdn转发
-- 接入反欺诈系统，当聊天对象有诈骗历史时，自动发出提醒
-- 支持屏蔽用户，避免被骚扰
+您無需使用任何命令列工具，只要透過瀏覽器在 Cloudflare 控制台即可完成部署。
 
-## 搭建方法
-1. 从[@BotFather](https://t.me/BotFather)获取token，并且可以发送`/setjoingroups`来禁止此Bot被添加到群组
-2. 从[uuidgenerator](https://www.uuidgenerator.net/)获取一个随机uuid作为secret
-3. 从[@username_to_id_bot](https://t.me/username_to_id_bot)获取你的用户id
-4. 登录[cloudflare](https://workers.cloudflare.com/)，创建一个worker
-5. 配置worker的变量
-    - 增加一个`ENV_BOT_TOKEN`变量，数值为从步骤1中获得的token
-    - 增加一个`ENV_BOT_SECRET`变量，数值为从步骤2中获得的secret
-    - 增加一个`ENV_ADMIN_UID`变量，数值为从步骤3中获得的用户id
-6. 绑定kv数据库，创建一个Namespace Name为`nfd`的kv数据库，在setting -> variable中设置`KV Namespace Bindings`：nfd -> nfd
-7. 点击`Quick Edit`，复制[这个文件](./worker.js)到编辑器中
-8. 通过打开`https://xxx.workers.dev/registerWebhook`来注册websoket
+## 第一步：準備工作
 
-## 使用方法
-- 当其他用户给bot发消息，会被转发到bot创建者
-- 用户回复普通文字给转发的消息时，会回复到原消息发送者
-- 用户回复`/block`, `/unblock`, `/checkblock`等命令会执行相关指令，**不会**回复到原消息发送者
+1. 在 Telegram 尋找 [@BotFather](https://t.me/botfather) 建立機器人並取得 **Bot Token**。
+2. 在 Telegram 尋找 [@userinfobot](https://t.me/userinfobot) 獲取您個人的 **Telegram User ID**（一串純數字）。
+3. 準備好一個 [Cloudflare 帳號](https://dash.cloudflare.com/)。
 
-## 欺诈数据源
-- 文件[fraud.db](./fraud.db)为欺诈数据，格式为每行一个uid
-- 可以通过pr扩展本数据，也可以通过提issue方式补充
-- 提供额外欺诈信息时，需要提供一定的消息出处
+## 第二步：建立 KV 命名空間 (KV Namespace)
+
+1. 登入 Cloudflare 控制台。
+2. 前往 **Workers 與 Pages** > **KV** (位於儲存空間分類下)。
+3. 點擊 **建立命名空間**。命名為 `telegram_bot_data` (或任意名稱) 並新增。
+
+## 第三步：建立 Worker
+
+1. 前往 **Workers 與 Pages** > **總覽**。
+2. 點擊 **建立應用程式** > **建立 Worker**。
+3. 為您的 Worker 命名 (例如 `stranger-chat-bot`) 並點擊 **部署**。
+4. 部署完成後，點擊 **編輯程式碼**。
+5. 清除預設的程式碼，貼上您提供的 JavaScript 程式碼，然後點擊 **部署**。
+
+## 第四步：設定綁定與環境變數
+
+1. 回到該 Worker 的控制台頁面。
+2. 前往 **設定** > **變數**。
+3. 向下滑動至 **KV 命名空間綁定**，點擊 **新增綁定**：
+   - **變數名稱**：`nfd` *(⚠️ 必須完全一致，程式碼才能正常運作！)*
+   - **KV 命名空間**：選擇您在第二步建立的命名空間。
+4. 滑動至 **環境變數** 並新增以下三個變數：
+   - `ENV_BOT_TOKEN`：您的 Telegram 機器人 Token (來自 [@BotFather](https://t.me/botfather))。
+   - `ENV_ADMIN_UID`：從 [@userinfobot](https://t.me/userinfobot) 取得您個人的 Tg UID。
+   - `ENV_BOT_SECRET`：自訂一組安全的隨機密碼 (僅限使用A-Z, a-z, 0-9, _, -)。[uuidgenerator](https://www.uuidgenerator.net/)
+5. 點擊 **部署** / **儲存**。
+
+## 第五步：註冊 Webhook
+
+為了讓 Telegram 知道要把訊息傳給您的 Cloudflare Worker，請開啟新的瀏覽器分頁並造訪以下網址： `https://<您的_WORKER_網址>.workers.dev/registerWebhook`
+
+如果畫面顯示 `"Ok"` 代表綁定成功！（如果未來需要解除綁定，請造訪 `/unRegisterWebhook`）。
+
+------
+
+## 📖 使用指南
+
+## 訪客流程
+
+1. 訪客向機器人發送 `/start`。
+2. 系統會請訪客選擇語言（English 或 中文）。
+3. 機器人會發送一道簡單的數學題驗證碼以確認為真人操作。
+4. 驗證通過後，訪客發送的任何訊息都會被默默轉發給您。
+
+## 管理員指令
+
+直接向您的機器人發送任何文字（不要回覆任何訊息），即可開啟 **互動式管理員選單**。或者您也可以使用以下指令：
+
+**獨立指令**
+
+- `/setword <詞彙>` — 新增屏蔽詞。包含此詞彙的訊息將不會被轉發。
+- `/delword <詞彙>` — 刪除屏蔽詞。
+- `/listword` — 查看目前所有的屏蔽詞。
+
+**上下文指令（⚠️ 您必須「回覆」訪客被轉發過來的訊息）**
+
+- **（直接回覆文字）** — 您的文字會被轉發回給該訪客。
+- `/info` — 查看該訪客的詳細資料（UID、名稱、用戶名、首次出現時間）。
+- `/block` — 封禁該用戶，拒收其未來的所有訊息。
+- `/unblock` — 解除封禁。
+- `/checkblock` — 檢查該用戶目前的封禁狀態。
+
+*(備註：當有新用戶首次發送訊息時，機器人會在轉發的訊息下方附上快捷按鈕，讓您可以一鍵封禁、解封或查看用戶資訊！)*
 
 ## Thanks
+
 - [telegram-bot-cloudflare](https://github.com/cvzi/telegram-bot-cloudflare)
+- NFD （[Github](https://github.com/LloydAsp/nfd) & [NodeSeek](https://www.nodeseek.com/post-286885-1)）
+- AI auxiliary tools
+
